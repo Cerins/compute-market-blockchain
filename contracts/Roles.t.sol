@@ -47,7 +47,7 @@ contract RolesTest is Test {
         vm.stopPrank();
     }
 
-    // 3) Buyer role management via Roles contract
+    // Buyer role management via Roles contract
 
     function test_Admin_CanGrantAndRevokeBuyer() public {
         // BUYER_1 was granted in setUp
