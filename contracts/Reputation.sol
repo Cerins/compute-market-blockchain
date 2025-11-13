@@ -18,8 +18,8 @@ contract Reputation {
     }
 
     //Role checks
-    modifier onlyBuyer() {
-        require(roles.hasRole(roles.BUYER_ROLE(), msg.sender), "buyer only");
+    modifier onlyBuyerOrAdmin() {
+        require(roles.hasRole(roles.BUYER_ROLE(), msg.sender) || roles.hasRole(roles.ADMIN_ROLE(), msg.sender), "buyer only");
         _;
     }
 
@@ -31,13 +31,13 @@ contract Reputation {
 
 
     // Buyer can increase reputation
-    function award(address who) external onlyBuyer() {
+    function award(address who) external onlyBuyerOrAdmin() {
         reputation[who] += 1;
         emit ReputationChanged(who, msg.sender, 1, reputation[who]);
     }
 
     // Buyer can reduce reputation
-    function penalize(address who) external onlyBuyer {
+    function penalize(address who) external onlyBuyerOrAdmin {
         reputation[who] -= 1;
         emit ReputationChanged(who, msg.sender, -1, reputation[who]);
     }
