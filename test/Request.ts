@@ -38,8 +38,12 @@ describe("Requests", function () {
 
     // Deploy Request as buyer
     const RequestFactory = await ethers.getContractFactory("Request");
+    const commandHash = ethers.keccak256(
+      ethers.toUtf8Bytes(commands.join(","))
+    );
+
     request = await RequestFactory.connect(buyer).deploy(
-      commands,
+      commandHash,
       roles.target,
       reputation.target
     );
@@ -69,9 +73,11 @@ describe("Requests", function () {
       .withArgs(auditor.address, seller.address, wrongHash, correctHash);
 
     // Penalize executor via admin (emit event from Reputation)
-    await expect(reputation.connect(owner).penalize(seller.address))
+    await expect(
+      reputation.connect(owner).penalize(seller.address, request.getAddress())
+    )
       .to.emit(reputation, "ReputationChanged")
-      .withArgs(seller.address, owner.address, -1, -1);
+      .withArgs(seller.address, owner.address, request.getAddress(), -1, -1);
   });
 
   it("should emit events for successful workflow and awarding executor", async function () {
@@ -95,8 +101,10 @@ describe("Requests", function () {
       .withArgs(seller.address, auditor.address, resultHash);
 
     // Admin awards executor
-    await expect(reputation.connect(owner).award(seller.address))
+    await expect(
+      reputation.connect(owner).award(seller.address, request.getAddress())
+    )
       .to.emit(reputation, "ReputationChanged")
-      .withArgs(seller.address, owner.address, 1, 1);
+      .withArgs(seller.address, owner.address, request.getAddress(), 1, 1);
   });
 });

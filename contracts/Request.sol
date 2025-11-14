@@ -13,7 +13,7 @@ contract Request {
 
     // Involved parties
     address public owner;
-    address public executer;
+    address public executor;
     address public auditor;
 
     // State machine
@@ -21,7 +21,7 @@ contract Request {
     State public currentState;
 
     // Data fields
-    string[] public commandList;
+    bytes32 public commandHash;
     bytes32 public resultHash;
     bytes32 public auditorResultHash;
     bool public faultyResult;
@@ -35,14 +35,14 @@ contract Request {
     event FaultyCalculationFixed(address indexed auditedBy, address calculatedBy);
     event RequestFinished(address indexed calculatedBy,address auditedBy, bytes32 resultHash);
 
-    constructor(string[] memory commands, address rolesAddress, address reputationAddress) {
+    constructor(bytes32 calculatedCommandHash, address rolesAddress, address reputationAddress) {
         owner = msg.sender;
         roles = Roles(rolesAddress);
         reputation = Reputation(reputationAddress);
 
         require(roles.hasRole(roles.BUYER_ROLE(), msg.sender), "buyer only");
 
-        commandList = commands;
+        commandHash = calculatedCommandHash;
         currentState = State.Created;
     }
 
@@ -58,8 +58,8 @@ contract Request {
         _;
     }
 
-    modifier onlyExecuter() {
-        require(executer == msg.sender, "executor only");
+    modifier onlyExecutor() {
+        require(executor == msg.sender, "executor only");
         _;
     }
 
@@ -91,7 +91,7 @@ contract Request {
         transitionTo(State.ExecutorAssigned)
     {
         require(roles.hasRole(roles.SELLER_ROLE(), potentialExecutor), "candidate not a seller");
-        executer = potentialExecutor;
+        executor = potentialExecutor;
         emit ExecutorAssigned(potentialExecutor);
     }
 
@@ -101,7 +101,7 @@ contract Request {
         onlyAdmin
         inState(State.ExecutorAssigned)
     {
-        require(potentialAuditor != executer, "auditor cannot be executor");
+        require(potentialAuditor != executor, "auditor cannot be executor");
         require(roles.hasRole(roles.SELLER_ROLE(), potentialAuditor), "candidate not a seller");
 
         auditor = potentialAuditor;
@@ -112,7 +112,7 @@ contract Request {
     /// @notice Executor posts the computation result. Moves state to ResultSubmitted.
     function assignResult(bytes32 calculatedResultHash)
         public
-        onlyExecuter
+        onlyExecutor
         inState(State.ExecutorAssigned)
         transitionTo(State.ResultSubmitted)
     {
@@ -123,13 +123,13 @@ contract Request {
         if (auditorResultHash != bytes32(0)) {
             if (auditorResultHash == resultHash) {
                 faultyResult = false;
-                emit FaultyCalculationFixed(auditor, executer);
+                emit FaultyCalculationFixed(auditor, executor);
                 currentState = State.Completed; // overwrite transition
-                emit RequestFinished(executer, auditor, resultHash);
+                emit RequestFinished(executor, auditor, resultHash);
             } else {
                 faultyResult = true;
-                emit FaultyCalculationDetected(auditor, executer, resultHash, auditorResultHash);
-                executer = address(0);
+                emit FaultyCalculationDetected(auditor, executor, resultHash, auditorResultHash);
+                executor = address(0);
                 currentState = State.Created; // allow retry
             }
         }
@@ -147,29 +147,24 @@ contract Request {
         if (resultHash != calculatedResultHash) {
             // mismatch: mark faulty, penalize executor and reset executor
             faultyResult = true;
-            emit FaultyCalculationDetected(auditor, executer, resultHash, auditorResultHash);
-            executer = address(0);
+            emit FaultyCalculationDetected(auditor, executor, resultHash, auditorResultHash);
+            executor = address(0);
             // allow re-assignment to try again
             currentState = State.Created;
         } else {
             currentState = State.Completed;
-            emit RequestFinished(executer, auditor, resultHash);
+            emit RequestFinished(executor, auditor, resultHash);
         }
     }
 
 //READ
-
-    /// @notice Read commands 
-    function getCommands() external view returns (string[] memory) {
-        return commandList;
-    }
-
     /// @notice Get the information of the request 
     function getInformation() external view returns (
         State state,
         address owner_,
-        address executer_,
+        address executor_,
         address auditor_,
+        bytes32 commandHash_,
         bytes32 resultHash_,
         bytes32 auditorResultHash_,
         bool faultyResult_
@@ -177,8 +172,9 @@ contract Request {
         return (
             currentState,
             owner,
-            executer,
+            executor,
             auditor,
+            commandHash,
             resultHash,
             auditorResultHash,
             faultyResult

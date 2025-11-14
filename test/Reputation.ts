@@ -11,6 +11,7 @@ describe("Reputation", function () {
   let randomUser: any;
   let roles: any;
   let reputation: any;
+  let request: any;
 
   beforeEach(async function () {
     [owner, buyer1, buyer2, seller, randomUser] = await ethers.getSigners();
@@ -25,23 +26,44 @@ describe("Reputation", function () {
     );
     await reputation.waitForDeployment();
 
-    // Grant BUYER_ROLE to buyer1 and buyer2
+    const hash = ethers.keccak256(ethers.toUtf8Bytes("Test"));
+
     const buyerRole = await roles.BUYER_ROLE();
     await roles.connect(owner).grantRole(buyerRole, buyer1.address);
     await roles.connect(owner).grantRole(buyerRole, buyer2.address);
+
+    const RequestFactory = await ethers.getContractFactory("Request");
+    request = await RequestFactory.connect(buyer1).deploy(
+      hash,
+      await roles.getAddress(),
+      await reputation.getAddress()
+    );
+    await request.waitForDeployment();
   });
 
   it("buyer can award and ReputationChanged is emitted", async function () {
-    await expect(reputation.connect(buyer1).award(seller.address))
+    await expect(
+      reputation
+        .connect(buyer1)
+        .award(seller.address, await request.getAddress())
+    )
       .to.emit(reputation, "ReputationChanged")
-      .withArgs(seller.address, buyer1.address, 1, 1);
+      .withArgs(
+        seller.address,
+        buyer1.address,
+        await request.getAddress(),
+        1,
+        1
+      );
 
     expect(await reputation.reputationOf(seller.address)).to.equal(1);
   });
 
   it("non-buyer cannot award (reverts)", async function () {
     await expect(
-      reputation.connect(randomUser).award(seller.address)
+      reputation
+        .connect(randomUser)
+        .award(seller.address, await request.getAddress())
     ).to.be.revertedWith("buyer only");
   });
 
