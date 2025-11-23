@@ -3,6 +3,8 @@ CXXFLAGS = -std=c++17 -Wall -Wextra -O2
 TARGET = executor_daemon
 SOURCE = executor_daemon.cpp
 
+# PY_EXEC = executor_python.sh # 
+PY_EXEC = executor_docker_cpu.sh # The dockerized cpu version
 INSTALL_BIN = /usr/local/bin
 INSTALL_SCRIPT = /usr/local/bin
 SYSTEMD_DIR = /etc/systemd/system
@@ -18,7 +20,7 @@ clean:
 install: $(TARGET)
 	@echo "Installing executor daemon..."
 	install -m 755 $(TARGET) $(INSTALL_BIN)/$(TARGET)
-	install -m 755 executor_python.sh $(INSTALL_SCRIPT)/executor_python.sh
+	install -m 755 $(PY_EXEC) $(INSTALL_SCRIPT)/$(PY_EXEC)
 	install -m 644 executor-daemon.service $(SYSTEMD_DIR)/executor-daemon.service
 	systemctl daemon-reload
 	@echo "Installation complete. Run 'sudo systemctl start executor-daemon' to start the service"
@@ -28,7 +30,7 @@ uninstall:
 	systemctl stop executor-daemon || true
 	systemctl disable executor-daemon || true
 	rm -f $(INSTALL_BIN)/$(TARGET)
-	rm -f $(INSTALL_SCRIPT)/executor_python.sh
+	rm -f $(INSTALL_SCRIPT)/$(PY_EXEC)
 	rm -f $(SYSTEMD_DIR)/executor-daemon.service
 	systemctl daemon-reload
 	@echo "Uninstall complete"
