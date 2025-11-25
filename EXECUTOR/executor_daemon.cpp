@@ -13,6 +13,11 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 
+// Make the LSP shut up about the DEFAULT_IMAGE not being set, despire make having it
+#ifndef DEFAULT_IMAGE
+#define DEFAULT_IMAGE "executor-cpu"
+#endif
+
 // The socket for communication with the daemon
 const char* SOCKET_PATH = "/tmp/executor_daemon.sock";
 // The daemons pid
@@ -65,6 +70,7 @@ bool execute_via_script(const std::string& code, const char* script_path, std::s
     char temp_filename[] = "/tmp/executor_XXXXXX";
     // Create a temp file to copy code to
     int fd = mkstemp(temp_filename);
+    fchmod(fd, 0644);
     if (fd == -1) {
         syslog(LOG_ERR, "Failed to create temporary file");
         return false;
@@ -88,6 +94,8 @@ bool execute_via_script(const std::string& code, const char* script_path, std::s
         dup2(stderr_pipe[1], STDERR_FILENO); // Redirect stderr to pipe
         close(stdout_pipe[1]);
         close(stderr_pipe[1]);
+        // Set the proper docker image which is being used
+        setenv("IMAGE", DEFAULT_IMAGE, 1);
         execl(script_path, script_path, temp_filename, nullptr);
         syslog(LOG_ERR, "Failed to exec script: %s", strerror(errno));
         exit(EXIT_FAILURE);

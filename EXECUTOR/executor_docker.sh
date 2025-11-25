@@ -16,10 +16,15 @@ fi
 CODE_FILE_ABS="$(readlink -f "$CODE_FILE")"
 CODE_BASENAME="$(basename "$CODE_FILE_ABS")"
 
-IMAGE="${IMAGE:-python:3.12-slim}"
+IMAGE="${IMAGE:-executor-cpu}"
+
+# Debug stuff
+# echo "IMAGE: $IMAGE"
 
 # TODO check if you can do better seccomp or apparmor
-docker run --rm -i \
+# Entrypoint is empty so that nvidia container will not spam stdout with container notice
+docker run --rm --gpus all -i \
+  --entrypoint "" \
   --name "py-sandbox-$$" \
   --network=none \
   --read-only \
